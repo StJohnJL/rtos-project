@@ -19,12 +19,8 @@
 #include "wait.h"
 #include "kernel.h"
 #include "tasks.h"
-
-#define BLUE_LED   PORTF,2 // on-board blue LED
-#define RED_LED    PORTE,0 // off-board red LED
-#define ORANGE_LED PORTA,2 // off-board orange LED
-#define YELLOW_LED PORTA,3 // off-board yellow LED
-#define GREEN_LED  PORTA,4 // off-board green LED
+#include "clock.h"
+#include "uart0.h"
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -35,19 +31,57 @@
 //           Add initialization for 6 pushbuttons
 void initHw(void)
 {
+    initSystemClockTo40Mhz();
+
+    enablePort(PORTA);
+    enablePort(PORTB);
+    enablePort(PORTC);
+    enablePort(PORTD);
+    enablePort(PORTE);
+    enablePort(PORTF);
+
+    initUart0();
+    setUart0BaudRate(115200, 40e6);
+
     // Setup LEDs and pushbuttons
+    selectPinDigitalInput(PB0);
+    enablePinPullup(PB0);
+    selectPinInterruptFallingEdge(PB0);
+    selectPinDigitalInput(PB1);
+    enablePinPullup(PB1);
+    selectPinInterruptFallingEdge(PB1);
+    selectPinDigitalInput(PB2);
+    enablePinPullup(PB2);
+    selectPinInterruptFallingEdge(PB2);
+    selectPinDigitalInput(PB3);
+    enablePinPullup(PB3);
+    selectPinInterruptFallingEdge(PB3);
+    selectPinDigitalInput(PB4);
+    enablePinPullup(PB4);
+    selectPinInterruptFallingEdge(PB4);
+    selectPinDigitalInput(PB5);
+    enablePinPullup(PB5);
+    selectPinInterruptFallingEdge(PB5);
+
+    selectPinPushPullOutput(LED0);
+    selectPinPushPullOutput(LED1);
+    selectPinPushPullOutput(LED2);
+    selectPinPushPullOutput(LED3);
+    selectPinPushPullOutput(LED4);
 
     // Power-up flash
-    setPinValue(GREEN_LED, 1);
+    GREEN_LED = 1;
     waitMicrosecond(250000);
-    setPinValue(GREEN_LED, 0);
+    GREEN_LED = 0;
     waitMicrosecond(250000);
+
+
 }
 
 // REQUIRED: add code to return a value from 0-63 indicating which of 6 PBs are pressed
 uint8_t readPbs(void)
 {
-    return 0;
+    return BUTTON_5 << 5 | BUTTON_4 << 4 | BUTTON_3 << 3 | BUTTON_2 << 2 | BUTTON_1 << 1 | BUTTON_0;
 }
 
 // one task must be ready at all times or the scheduler will fail
@@ -56,9 +90,9 @@ void idle(void)
 {
     while(true)
     {
-        setPinValue(ORANGE_LED, 1);
+        ORANGE_LED = 1;
         waitMicrosecond(1000);
-        setPinValue(ORANGE_LED, 0);
+        ORANGE_LED = 0;
         yield();
     }
 }
@@ -67,7 +101,7 @@ void flash4Hz(void)
 {
     while(true)
     {
-        setPinValue(GREEN_LED, !getPinValue(GREEN_LED));
+        GREEN_LED ^= 1;
         sleep(125);
     }
 }
@@ -77,9 +111,9 @@ void oneshot(void)
     while(true)
     {
         wait(flashReq);
-        setPinValue(YELLOW_LED, 1);
+        YELLOW_LED = 1;
         sleep(1000);
-        setPinValue(YELLOW_LED, 0);
+        YELLOW_LED = 0;
     }
 }
 
@@ -104,7 +138,7 @@ void lengthyFn(void)
             partOfLengthyFn();
             mem[i] = i % 256;
         }
-        setPinValue(RED_LED, !getPinValue(RED_LED));
+        RED_LED ^= 1;
         unlock(resource);
     }
 }
@@ -124,13 +158,13 @@ void readKeys(void)
         post(keyPressed);
         if ((buttons & 1) != 0)
         {
-            setPinValue(YELLOW_LED, !getPinValue(YELLOW_LED));
-            setPinValue(RED_LED, 1);
+            YELLOW_LED ^= 1;
+            RED_LED = 1;
         }
         if ((buttons & 2) != 0)
         {
             post(flashReq);
-            setPinValue(RED_LED, 0);
+            RED_LED = 0;
         }
         if ((buttons & 4) != 0)
         {
@@ -196,9 +230,9 @@ void important(void)
     while(true)
     {
         lock(resource);
-        setPinValue(BLUE_LED, 1);
+        BLUE_LED = 1;
         sleep(1000);
-        setPinValue(BLUE_LED, 0);
+        BLUE_LED = 0;
         unlock(resource);
     }
 }

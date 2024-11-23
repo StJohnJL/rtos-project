@@ -144,7 +144,7 @@ void startRtos(void)
 bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackBytes)
 {
     bool ok = false;
-    uint8_t i = 0;
+    uint8_t i = 0, j = 0;
     bool found = false;
     if (taskCount < MAX_TASKS)
     {
@@ -160,10 +160,31 @@ bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackByt
             while (tcb[i].state != STATE_INVALID) {i++;}
             tcb[i].state = STATE_READY;
             tcb[i].pid = fn;
-            tcb[i].sp = 0;
-            tcb[i].spInit = 0;
+
+            tcb[i].sp = mallocFromHeap(stackBytes);
+            tcb[i].spInit = tcb[i].sp;
+
             tcb[i].priority = priority;
-            tcb[i].srd = 0;
+
+            addSramAccessWindow(&tcb[i].srd, (uint32_t*)&tcb[i].spInit, stackBytes);
+
+            do {
+                tcb[i].name[j] = name[j];
+                j++;
+            } while(name[j] != '\0');
+
+            uint32_t* stackPointer = (uint32_t*)tcb[i].sp;
+
+            *(stackPointer - 1) = 0x00000000;    // Write xPSR
+            *(stackPointer - 2) = (uint32_t)fn;            // Write PC
+            *(stackPointer - 3) = (uint32_t)rtosScheduler; // Write LR
+            *(stackPointer - 4) = 0x00000000;    // Write R12
+            *(stackPointer - 5) = 0x00000000;    // Write R3
+            *(stackPointer - 6) = 0x00000000;    // Write R2
+            *(stackPointer - 7) = 0x00000000;    // Write R1
+            *(stackPointer - 8) = 0x00000000;    // Write R0
+
+            tcb[i].sp = (void*)(stackPointer - 8);
 
             // increment task count
             taskCount++;

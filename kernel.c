@@ -49,6 +49,10 @@ semaphore semaphores[MAX_SEMAPHORES];
 #define STATE_BLOCKED_MUTEX     4 // has run, but now blocked by semaphore
 #define STATE_BLOCKED_SEMAPHORE 5 // has run, but now blocked by semaphore
 
+// SVC call numbers
+#define SVC_YIELD 0
+#define SVC_SLEEP 1
+
 // task
 uint8_t taskCurrent = 0;          // index of last dispatched task
 uint8_t taskCount = 0;            // total number of valid tasks
@@ -196,8 +200,16 @@ bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackByt
             *(stackPointer - 6) = 0x00000002;    // Write R2
             *(stackPointer - 7) = 0x00000001;    // Write R1
             *(stackPointer - 8) = 0x00000000;    // Write R0
+            *(stackPointer - 9) = 0x00000000;    // Write R4-R11 with zeros
+            *(stackPointer - 10) = 0x00000000;
+            *(stackPointer - 11) = 0x00000000;
+            *(stackPointer - 12) = 0x00000000;
+            *(stackPointer - 13) = 0x00000000;
+            *(stackPointer - 14) = 0x00000000;
+            *(stackPointer - 15) = 0x00000000;
+            *(stackPointer - 16) = 0x00000000;
 
-            tcb[i].sp = (void*)(stackPointer - 8);
+            tcb[i].sp = (void*)(stackPointer - 16);
 
             // increment task count
             taskCount++;
@@ -226,13 +238,16 @@ void setThreadPriority(_fn fn, uint8_t priority)
 // REQUIRED: modify this function to yield execution back to scheduler using pendsv
 void yield(void)
 {
-    callSV();
+    callSV(SVC_YIELD);
 }
 
 // REQUIRED: modify this function to support 1ms system timer
 // execution yielded back to scheduler until time elapses using pendsv
 void sleep(uint32_t tick)
 {
+    tcb[taskCurrent].ticks = tick;
+    tcb[taskCurrent].state = STATE_DELAYED;
+    callSV(SVC_SLEEP);
 }
 
 // REQUIRED: modify this function to lock a mutex using pendsv
@@ -259,19 +274,34 @@ void post(int8_t semaphore)
 // REQUIRED: in preemptive code, add code to request task switch
 void systickIsr(void)
 {
+    uint8_t index;
+
+    if(preemption) {
+
+    }
+    else {
+        for(index = 0; index < MAX_TASKS; index++) {
+            if(tcb[index].ticks != 0) {
+                tcb[index].ticks--;
+            }
+
+            if(tcb[index].state == STATE_DELAYED && tcb[index].ticks == 0) {
+                tcb[index].state = STATE_READY;
+            }
+        }
+    }
 }
 
 // REQUIRED: in coop and preemptive, modify this function to add support for task switching
 // REQUIRED: process UNRUN and READY tasks differently
 void pendSvIsr(void)
 {
-
     saveContext();
     tcb[taskCurrent].sp = (void*)readPSP();
 
     taskCurrent = rtosScheduler();
-    setPSP((uint32_t)tcb[taskCurrent].sp);
 
+    setPSP((uint32_t)tcb[taskCurrent].sp);
     loadContext();
 
     returnFromException();
@@ -282,9 +312,24 @@ void pendSvIsr(void)
 // REQUIRED: in preemptive code, add code to handle synchronization primitives
 void svCallIsr(void)
 {
-    // Implement a switch-case statement that switches based on the immediate sent during the SVC command
+    uint8_t callNumber = readR0();
 
+    switch(callNumber) {
+    case 0:
+        NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
+        break;
 
-    NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV; // Call pendSvIsr
+    case 1:
+        NVIC_ST_CTRL_R |= NVIC_ST_CTRL_ENABLE; // Enable Systick timer
+        NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
+        break;
+
+    case 2:
+        break;
+
+    case 3:
+        break;
+
+    }
 }
 

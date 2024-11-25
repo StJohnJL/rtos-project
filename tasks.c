@@ -21,6 +21,7 @@
 #include "tasks.h"
 #include "clock.h"
 #include "uart0.h"
+#include "mm.h"
 
 //-----------------------------------------------------------------------------
 // Subroutines
@@ -68,6 +69,9 @@ void initHw(void)
     selectPinPushPullOutput(LED2);
     selectPinPushPullOutput(LED3);
     selectPinPushPullOutput(LED4);
+
+    NVIC_ST_RELOAD_R = 0x1387; // Load in value for 1ms Systick ISR
+    NVIC_ST_CTRL_R |= NVIC_ST_CTRL_INTEN; // Enable Systick ISR
 
     // Power-up flash
     GREEN_LED = 1;
@@ -125,17 +129,21 @@ void partOfLengthyFn(void)
     yield();
 }
 
+uint16_t i;
+uint32_t* testAddr;
+
 void lengthyFn(void)
 {
-    uint16_t i;
+    //uint16_t i;
     uint8_t *mem;
-    mem = mallocFromHeap(5000 * sizeof(uint8_t));
+    mem = (uint8_t*)mallocFromHeap(5000 * sizeof(uint8_t));
     while(true)
     {
         lock(resource);
         for (i = 0; i < 5000; i++)
         {
             partOfLengthyFn();
+            testAddr = &mem[i];
             mem[i] = i % 256;
         }
         RED_LED ^= 1;

@@ -267,6 +267,7 @@ void pendSvIsr(void)
 {
 
     saveContext();
+    tcb[taskCurrent].sp = readPSP();
 
     taskCurrent = rtosScheduler();
     setPSP((uint32_t)tcb[taskCurrent].sp);

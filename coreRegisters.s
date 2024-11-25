@@ -67,24 +67,29 @@ readPSP:
 	.def callSV
 
 callSV:
-	SVC #0
+	SVC #R0
+	BX  LR
+
+	.def readR0
+
+readR0
 	BX  LR
 
 	.def saveContext
 
 saveContext:
-	MRS R0, PSP
-	STM R0, {R4-R11}
-	MSR PSP, R0
-	BX  LR
+	MRS   R0, PSP
+	STMDB R0!, {R4-R11}
+	MSR   PSP, R0
+	BX    LR
 
 	.def loadContext
 
 loadContext:
-	MRS R0, PSP
-	LDM R0, {R4-R11}
-	MSR PSP, R0
-	BX  LR
+	MRS    R0, PSP
+	LDMIA  R0!, {R4-R11}
+	MSR    PSP, R0
+	BX     LR
 
 	.def setPC
 
@@ -110,5 +115,6 @@ changeVals:
 returnFromException:
 	MOVW R0, #0xFFFD
 	MOVT R0, #0xFFFF
-	MOV  LR, R0
+	POP  {R0, PC}
 	BX  LR
+

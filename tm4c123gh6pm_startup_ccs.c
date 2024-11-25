@@ -56,6 +56,7 @@ extern uint32_t __STACK_TOP;
 //*****************************************************************************
 extern void svCallIsr(void);
 extern void pendSvIsr(void);
+extern void systickIsr(void);
 
 //*****************************************************************************
 //
@@ -83,7 +84,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // Debug monitor handler
     0,                                      // Reserved
     pendSvIsr,                              // The PendSV handler
-    IntDefaultHandler,                      // The SysTick handler
+    systickIsr,                             // The SysTick handler
     IntDefaultHandler,                      // GPIO Port A
     IntDefaultHandler,                      // GPIO Port B
     IntDefaultHandler,                      // GPIO Port C

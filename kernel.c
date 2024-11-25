@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include "tm4c123gh6pm.h"
 #include "mm.h"
+#include "coreRegisters.h"
 #include "kernel.h"
 
 //-----------------------------------------------------------------------------
@@ -133,6 +134,18 @@ uint8_t rtosScheduler(void)
 // fn set TMPL bit, and PC <= fn
 void startRtos(void)
 {
+    while(1) {
+        taskCurrent = rtosScheduler();
+
+        applySramAccessMask(tcb[taskCurrent].srd);
+
+        setPSP((uint32_t)tcb[taskCurrent].sp);
+        setASP();
+
+        setPC((uint32_t)tcb[taskCurrent].pid);
+
+        //setTMPL();
+    }
 }
 
 // REQUIRED:
@@ -175,13 +188,13 @@ bool createThread(_fn fn, const char name[], uint8_t priority, uint32_t stackByt
 
             uint32_t* stackPointer = (uint32_t*)tcb[i].sp;
 
-            *(stackPointer - 1) = 0x00000000;    // Write xPSR
+            *(stackPointer - 1) = 0x41000000;    // Write xPSR
             *(stackPointer - 2) = (uint32_t)fn;            // Write PC
             *(stackPointer - 3) = (uint32_t)rtosScheduler; // Write LR
-            *(stackPointer - 4) = 0x00000000;    // Write R12
-            *(stackPointer - 5) = 0x00000000;    // Write R3
-            *(stackPointer - 6) = 0x00000000;    // Write R2
-            *(stackPointer - 7) = 0x00000000;    // Write R1
+            *(stackPointer - 4) = 0x0000000C;    // Write R12
+            *(stackPointer - 5) = 0x00000003;    // Write R3
+            *(stackPointer - 6) = 0x00000002;    // Write R2
+            *(stackPointer - 7) = 0x00000001;    // Write R1
             *(stackPointer - 8) = 0x00000000;    // Write R0
 
             tcb[i].sp = (void*)(stackPointer - 8);
@@ -213,6 +226,7 @@ void setThreadPriority(_fn fn, uint8_t priority)
 // REQUIRED: modify this function to yield execution back to scheduler using pendsv
 void yield(void)
 {
+    callSV();
 }
 
 // REQUIRED: modify this function to support 1ms system timer
@@ -251,11 +265,25 @@ void systickIsr(void)
 // REQUIRED: process UNRUN and READY tasks differently
 void pendSvIsr(void)
 {
+
+    saveContext();
+
+    taskCurrent = rtosScheduler();
+    setPSP((uint32_t)tcb[taskCurrent].sp);
+
+    loadContext();
+
+    returnFromException();
+    NVIC_SYS_HND_CTRL_R &= ~NVIC_SYS_HND_CTRL_PNDSV;
 }
 
 // REQUIRED: modify this function to add support for the service call
 // REQUIRED: in preemptive code, add code to handle synchronization primitives
 void svCallIsr(void)
 {
+    // Implement a switch-case statement that switches based on the immediate sent during the SVC command
+
+
+    NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV; // Call pendSvIsr
 }
 

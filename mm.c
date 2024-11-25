@@ -49,7 +49,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
             if(!alloc_512[index]) {
                 alloc_512[index] = 1;
                 alloc_id_512[index] = allocation_id;
-                mem_pointer = (void*)(0x20001000 + 512*(index));
+                mem_pointer = (void*)(0x20001000 + 512*(index + 1));
                 goto post_alloc_processing;
             }
         }
@@ -57,7 +57,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
             if(!alloc_1024[index]) {
                 alloc_1024[index] = 1;
                 alloc_id_1024[index] = allocation_id;
-                mem_pointer = (void*)(0x20008000 - 1024*(index+1));
+                mem_pointer = (void*)(0x20008000 - 1024*(index));
                 goto post_alloc_processing;
             }
         }
@@ -67,7 +67,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
             if(!alloc_1024[index]) {
                 alloc_1024[index] = 1;
                 alloc_id_1024[index] = allocation_id;
-                mem_pointer = (void*)(0x20008000 - 1024*(index+1));
+                mem_pointer = (void*)(0x20008000 - 1024*(index));
                 goto post_alloc_processing;
             }
         }
@@ -75,7 +75,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
             if(!alloc_512[index] && !alloc_512[index+1]) {
                 alloc_512[index] = alloc_512[index+1] = 1;
                 alloc_id_512[index] = alloc_id_512[index+1] = allocation_id;
-                mem_pointer = (void*)(0x20001000 + 512*(index));
+                mem_pointer = (void*)(0x20001000 + 512*(index + 1));
                 goto post_alloc_processing;
             }
         }
@@ -86,7 +86,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
             alloc_id_512[ALLOCATIONS_512 - 1] = allocation_id;
             alloc_1024[ALLOCATIONS_1024 - 1] = 1;
             alloc_id_1024[ALLOCATIONS_1024 - 1] = allocation_id;
-            mem_pointer = (void*)(0x20003E00);
+            mem_pointer = (void*)(0x20004400);
             goto post_alloc_processing;
         }
         else {
@@ -94,7 +94,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
                 if(!alloc_512[index] && !alloc_512[index + 1] && !alloc_512[index + 2]) {
                     alloc_512[index] = alloc_512[index + 1] = alloc_512[index + 2] = 1;
                     alloc_id_512[index] = alloc_id_512[index + 1] = alloc_id_512[index + 2] = allocation_id;
-                    mem_pointer = (void*)(0x20001000 + 512*(index));
+                    mem_pointer = (void*)(0x20001000 + 512*(index + 1));
                     goto post_alloc_processing;
                 }
             }
@@ -102,7 +102,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
                 if(!alloc_1024[index] && !alloc_1024[index + 1]) {
                     alloc_1024[index] = alloc_1024[index + 1] = 1;
                     alloc_id_1024[index] = alloc_id_1024[index + 1] = allocation_id;
-                    mem_pointer = (void*)(0x20008000 - 1024*(index+2));
+                    mem_pointer = (void*)(0x20008000 - 1024*(index));
                     goto post_alloc_processing;
                 }
             }
@@ -142,7 +142,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
                     alloc_1024[index - j] = 1;
                     alloc_id_1024[index - j] = allocation_id;
                 }
-                mem_pointer = (void*)(0x20008000 - 1024*(index + 1));
+                mem_pointer = (void*)(0x20008000 - 1024*(index - j + 1));
                 goto post_alloc_processing;
             }
         }
@@ -160,7 +160,7 @@ void * mallocFromHeap(uint32_t size_in_bytes)
                     alloc_512[index + j] = 1;
                     alloc_id_512[index + j] = allocation_id;
                 }
-                mem_pointer = (void*)(0x20001000 + 512*(index));
+                mem_pointer = (void*)(0x20001000 + 512*(index + j + 2));
                 goto post_alloc_processing;
             }
         }

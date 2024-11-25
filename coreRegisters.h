@@ -15,6 +15,11 @@ extern void clearTMPL(void);
 extern void setPSP(uint32_t i);
 extern uint32_t readMSP(void);
 extern uint32_t readPSP(void);
-extern void callPendSV();
+extern void callSV(void);
+extern void saveContext(void);
+extern void loadContext(void);
+extern void setPC(uint32_t);
+extern void changeVals(void);
+extern void returnFromException(void);
 
 #endif /* COREREGISTERS_H_ */

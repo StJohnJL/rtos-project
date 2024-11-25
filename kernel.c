@@ -50,8 +50,10 @@ semaphore semaphores[MAX_SEMAPHORES];
 #define STATE_BLOCKED_SEMAPHORE 5 // has run, but now blocked by semaphore
 
 // SVC call numbers
-#define SVC_YIELD 0
-#define SVC_SLEEP 1
+#define SVC_YIELD  0
+#define SVC_SLEEP  1
+#define SVC_LOCK   2
+#define SVC_UNLOCK 3
 
 // task
 uint8_t taskCurrent = 0;          // index of last dispatched task
@@ -253,11 +255,13 @@ void sleep(uint32_t tick)
 // REQUIRED: modify this function to lock a mutex using pendsv
 void lock(int8_t mutex)
 {
+    callSV(SVC_LOCK);
 }
 
 // REQUIRED: modify this function to unlock a mutex using pendsv
 void unlock(int8_t mutex)
 {
+    callSV(SVC_UNLOCK);
 }
 
 // REQUIRED: modify this function to wait a semaphore using pendsv
@@ -313,21 +317,55 @@ void pendSvIsr(void)
 void svCallIsr(void)
 {
     uint8_t callNumber = readR0();
+    uint8_t index;
 
     switch(callNumber) {
-    case 0:
+    case SVC_YIELD:
         NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
         break;
 
-    case 1:
+    case SVC_SLEEP:
         NVIC_ST_CTRL_R |= NVIC_ST_CTRL_ENABLE; // Enable Systick timer
         NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
         break;
 
-    case 2:
+    case SVC_LOCK:
+        if(mutexes[0].lock) {
+            if(mutexes[0].queueSize < MAX_MUTEX_QUEUE_SIZE && mutexes[0].lockedBy != taskCurrent) {
+                mutexes[0].processQueue[mutexes[0].queueSize] = taskCurrent;
+                mutexes[0].queueSize++;
+                tcb[taskCurrent].state = STATE_BLOCKED_MUTEX;
+                NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
+            }
+        }
+        else {
+            mutexes[0].lock = 1;
+            mutexes[0].lockedBy = taskCurrent;
+        }
         break;
 
-    case 3:
+    case SVC_UNLOCK:
+        if(mutexes[0].lock) {
+            if(mutexes[0].queueSize > 0) {
+                mutexes[0].lockedBy = mutexes[0].processQueue[mutexes[0].queueSize - 1];
+
+                for(index = 0; index < MAX_MUTEX_QUEUE_SIZE; index++) {
+                    if(index != MAX_MUTEX_QUEUE_SIZE - 1) {
+                        mutexes[0].processQueue[index] = mutexes[0].processQueue[index + 1];
+                    }
+                    else {
+                        mutexes[0].processQueue[index] = 0;
+                    }
+                }
+
+                tcb[mutexes[0].lockedBy].state = STATE_READY;
+                mutexes[0].queueSize--;
+            }
+            else {
+                mutexes[0].lock = 0;
+                mutexes[0].lockedBy = 0;
+            }
+        }
         break;
 
     }

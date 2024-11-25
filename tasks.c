@@ -129,12 +129,9 @@ void partOfLengthyFn(void)
     yield();
 }
 
-uint16_t i;
-uint32_t* testAddr;
-
 void lengthyFn(void)
 {
-    //uint16_t i;
+    uint16_t i;
     uint8_t *mem;
     mem = (uint8_t*)mallocFromHeap(5000 * sizeof(uint8_t));
     while(true)
@@ -143,8 +140,7 @@ void lengthyFn(void)
         for (i = 0; i < 5000; i++)
         {
             partOfLengthyFn();
-            testAddr = &mem[i];
-            mem[i] = i % 256;
+            //mem[i] = i % 256;
         }
         RED_LED ^= 1;
         unlock(resource);

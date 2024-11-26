@@ -46,29 +46,32 @@ void initHw(void)
 
     // Setup LEDs and pushbuttons
     selectPinDigitalInput(PB0);
-    enablePinPullup(PB0);
+    enablePinPulldown(PB0);
     selectPinInterruptFallingEdge(PB0);
     selectPinDigitalInput(PB1);
-    enablePinPullup(PB1);
+    enablePinPulldown(PB1);
     selectPinInterruptFallingEdge(PB1);
     selectPinDigitalInput(PB2);
-    enablePinPullup(PB2);
+    enablePinPulldown(PB2);
     selectPinInterruptFallingEdge(PB2);
     selectPinDigitalInput(PB3);
-    enablePinPullup(PB3);
+    enablePinPulldown(PB3);
     selectPinInterruptFallingEdge(PB3);
     selectPinDigitalInput(PB4);
-    enablePinPullup(PB4);
+    enablePinPulldown(PB4);
     selectPinInterruptFallingEdge(PB4);
     selectPinDigitalInput(PB5);
-    enablePinPullup(PB5);
+    enablePinPulldown(PB5);
     selectPinInterruptFallingEdge(PB5);
 
+    selectPinPushPullOutput(PORTB, 2);
     selectPinPushPullOutput(LED0);
     selectPinPushPullOutput(LED1);
     selectPinPushPullOutput(LED2);
     selectPinPushPullOutput(LED3);
     selectPinPushPullOutput(LED4);
+
+    setPinValue(PORTB, 2, 1);
 
     NVIC_ST_RELOAD_R = 0x1387; // Load in value for 1ms Systick ISR
     NVIC_ST_CTRL_R |= NVIC_ST_CTRL_INTEN; // Enable Systick ISR

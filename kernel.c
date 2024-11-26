@@ -54,6 +54,8 @@ semaphore semaphores[MAX_SEMAPHORES];
 #define SVC_SLEEP  1
 #define SVC_LOCK   2
 #define SVC_UNLOCK 3
+#define SVC_WAIT   4
+#define SVC_POST   5
 
 // task
 uint8_t taskCurrent = 0;          // index of last dispatched task
@@ -248,30 +250,38 @@ void yield(void)
 void sleep(uint32_t tick)
 {
     tcb[taskCurrent].ticks = tick;
-    tcb[taskCurrent].state = STATE_DELAYED;
+    if(tcb[taskCurrent].state != STATE_BLOCKED_SEMAPHORE && tcb[taskCurrent].state != STATE_BLOCKED_MUTEX) {
+        tcb[taskCurrent].state = STATE_DELAYED;
+    }
     callSV(SVC_SLEEP);
 }
 
 // REQUIRED: modify this function to lock a mutex using pendsv
 void lock(int8_t mutex)
 {
+    tcb[taskCurrent].mutex = mutex;
     callSV(SVC_LOCK);
 }
 
 // REQUIRED: modify this function to unlock a mutex using pendsv
 void unlock(int8_t mutex)
 {
+    tcb[taskCurrent].mutex = mutex;
     callSV(SVC_UNLOCK);
 }
 
 // REQUIRED: modify this function to wait a semaphore using pendsv
 void wait(int8_t semaphore)
 {
+    tcb[taskCurrent].semaphore = semaphore;
+    callSV(SVC_WAIT);
 }
 
 // REQUIRED: modify this function to signal a semaphore is available using pendsv
 void post(int8_t semaphore)
 {
+    tcb[taskCurrent].semaphore = semaphore;
+    callSV(SVC_POST);
 }
 
 // REQUIRED: modify this function to add support for the system timer
@@ -290,7 +300,9 @@ void systickIsr(void)
             }
 
             if(tcb[index].state == STATE_DELAYED && tcb[index].ticks == 0) {
-                tcb[index].state = STATE_READY;
+                if(tcb[index].state != STATE_BLOCKED_MUTEX && tcb[index].state != STATE_BLOCKED_SEMAPHORE) {
+                    tcb[index].state = STATE_READY;
+                }
             }
         }
     }
@@ -318,6 +330,9 @@ void svCallIsr(void)
 {
     uint8_t callNumber = readR0();
     uint8_t index;
+    uint8_t mutexId = tcb[taskCurrent].mutex;
+    uint8_t semaphoreId = tcb[taskCurrent].semaphore;
+    bool idFound = 0;
 
     switch(callNumber) {
     case SVC_YIELD:
@@ -330,44 +345,115 @@ void svCallIsr(void)
         break;
 
     case SVC_LOCK:
-        if(mutexes[0].lock) {
-            if(mutexes[0].queueSize < MAX_MUTEX_QUEUE_SIZE && mutexes[0].lockedBy != taskCurrent) {
-                mutexes[0].processQueue[mutexes[0].queueSize] = taskCurrent;
-                mutexes[0].queueSize++;
+        if(mutexes[mutexId].lock) {
+            if(mutexes[mutexId].queueSize < MAX_MUTEX_QUEUE_SIZE && mutexes[mutexId].lockedBy != taskCurrent) {
+                mutexes[mutexId].processQueue[mutexes[mutexId].queueSize] = taskCurrent;
+                mutexes[mutexId].queueSize++;
                 tcb[taskCurrent].state = STATE_BLOCKED_MUTEX;
                 NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
             }
         }
         else {
-            mutexes[0].lock = 1;
-            mutexes[0].lockedBy = taskCurrent;
+            tcb[taskCurrent].mutex = 0;
+            mutexes[mutexId].lock = 1;
+            mutexes[mutexId].lockedBy = taskCurrent;
         }
         break;
 
     case SVC_UNLOCK:
-        if(mutexes[0].lock) {
-            if(mutexes[0].queueSize > 0) {
-                mutexes[0].lockedBy = mutexes[0].processQueue[mutexes[0].queueSize - 1];
+        if(mutexes[mutexId].lock) {
+            if(mutexes[mutexId].queueSize > 0) {
+                mutexes[mutexId].lockedBy = mutexes[mutexId].processQueue[mutexes[mutexId].queueSize - 1];
 
                 for(index = 0; index < MAX_MUTEX_QUEUE_SIZE; index++) {
                     if(index != MAX_MUTEX_QUEUE_SIZE - 1) {
-                        mutexes[0].processQueue[index] = mutexes[0].processQueue[index + 1];
+                        mutexes[mutexId].processQueue[index] = mutexes[mutexId].processQueue[index + 1];
                     }
                     else {
-                        mutexes[0].processQueue[index] = 0;
+                        mutexes[mutexId].processQueue[index] = 0;
                     }
                 }
 
-                tcb[mutexes[0].lockedBy].state = STATE_READY;
-                mutexes[0].queueSize--;
+                tcb[mutexes[mutexId].lockedBy].mutex = 0;
+
+                if(tcb[mutexes[mutexId].lockedBy].ticks == 0) {
+                    tcb[mutexes[mutexId].lockedBy].state = STATE_READY;
+                }
+                else {
+                    tcb[mutexes[mutexId].lockedBy].state = STATE_DELAYED;
+                }
+
+                mutexes[mutexId].queueSize--;
             }
             else {
-                mutexes[0].lock = 0;
-                mutexes[0].lockedBy = 0;
+                mutexes[mutexId].lock = 0;
+                mutexes[mutexId].lockedBy = 0;
             }
         }
         break;
 
+    case SVC_WAIT:
+        if(semaphores[semaphoreId].count == 0 && semaphores[semaphoreId].queueSize != MAX_SEMAPHORE_QUEUE_SIZE) {
+            for(index = 0; index < MAX_SEMAPHORE_QUEUE_SIZE; index++) {
+                if(semaphores[semaphoreId].processQueue[index] == taskCurrent) {
+                    idFound = 1;
+                }
+            }
+
+            index = 0;
+            if(!idFound) {
+                while(semaphores[semaphoreId].processQueue[index] != 0) {
+                    index++;
+                };
+
+                semaphores[semaphoreId].processQueue[index] = taskCurrent;
+                semaphores[semaphoreId].queueSize++;
+                tcb[taskCurrent].state = STATE_BLOCKED_SEMAPHORE;
+                NVIC_INT_CTRL_R |= NVIC_INT_CTRL_PEND_SV;
+            }
+
+        }
+        else {
+            for(index = 0; index < MAX_SEMAPHORE_QUEUE_SIZE; index++) {
+                if(semaphores[semaphoreId].processQueue[index] == taskCurrent) {
+                    idFound = 1;
+                }
+            }
+
+            if(!idFound) {
+                semaphores[semaphoreId].count--;
+                tcb[taskCurrent].semaphore = 0;
+            }
+        }
+        break;
+
+    case SVC_POST:
+        if(semaphores[semaphoreId].queueSize != 0) {
+            if(tcb[semaphores[semaphoreId].processQueue[0]].ticks == 0) {
+                tcb[semaphores[semaphoreId].processQueue[0]].state = STATE_READY;
+            }
+            else {
+                tcb[semaphores[semaphoreId].processQueue[0]].state = STATE_DELAYED;
+            }
+
+            tcb[semaphores[semaphoreId].processQueue[0]].semaphore = 0;
+
+            for(index = 0; index < MAX_SEMAPHORE_QUEUE_SIZE; index++) {
+                if(index != MAX_MUTEX_QUEUE_SIZE - 1) {
+                    semaphores[semaphoreId].processQueue[index] = semaphores[semaphoreId].processQueue[index + 1];
+                }
+                else {
+                    semaphores[semaphoreId].processQueue[index] = 0;
+                }
+            }
+
+            semaphores[semaphoreId].queueSize--;
+        }
+        else {
+            semaphores[semaphoreId].count++;
+            tcb[taskCurrent].semaphore = 0;
+        }
+        break;
     }
 }
 

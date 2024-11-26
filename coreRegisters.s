@@ -75,6 +75,12 @@ callSV:
 readR0
 	BX  LR
 
+	.def readR3
+
+readR3
+	MOV R0, R3
+	BX  LR
+
 	.def saveContext
 
 saveContext:

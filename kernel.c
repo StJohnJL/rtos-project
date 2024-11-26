@@ -126,13 +126,54 @@ uint8_t rtosScheduler(void)
 {
     bool ok;
     static uint8_t task = 0xFF;
-    ok = false;
-    while (!ok)
-    {
-        task++;
-        if (task >= MAX_TASKS)
-            task = 0;
-        ok = (tcb[task].state == STATE_READY);
+    uint8_t i = 0, j = 0;
+    uint8_t targetIndex;
+    uint8_t priorityMatrix[16][MAX_TASKS] = {0};
+    static uint8_t priorityIndex[12] = {0};
+
+    task = 0;
+    if(priorityScheduler) {
+        while(task < taskCount || task == 0xFF) {
+            i = 0;
+            while(i <= 12) {
+                if(priorityMatrix[tcb[task].priority][i] == 0) {
+                    priorityMatrix[tcb[task].priority][i] = task;
+                    break;
+                }
+                i++;
+            }
+            task++;
+        }
+
+        for(i = 0; i < 16; i++) {
+            j = 0;
+            while(j < 12) {
+                if(priorityMatrix[i][priorityIndex[i]] != 0) {
+                    if(tcb[priorityMatrix[i][priorityIndex[i]]].state == STATE_READY) {
+                        targetIndex = priorityIndex[i];
+                        priorityIndex[i] = (priorityIndex[i] + 1)%12;
+                        return priorityMatrix[i][targetIndex];
+                    }
+                    priorityIndex[i] = (priorityIndex[i] + 1)%12;
+                    j++;
+                }
+                else {
+                    priorityIndex[i] = (priorityIndex[i] + 1)%12;
+                    j++;
+                }
+            }
+        }
+        return 0;
+    }
+    else {
+        ok = false;
+        while (!ok)
+        {
+            task++;
+            if (task >= MAX_TASKS)
+                task = 0;
+            ok = (tcb[task].state == STATE_READY);
+        }
     }
     return task;
 }

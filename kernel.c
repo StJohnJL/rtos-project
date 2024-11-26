@@ -62,7 +62,7 @@ uint8_t taskCurrent = 0;          // index of last dispatched task
 uint8_t taskCount = 0;            // total number of valid tasks
 
 // control
-bool priorityScheduler = true;    // priority (true) or round-robin (false)
+bool priorityScheduler = false;    // priority (true) or round-robin (false)
 bool priorityInheritance = false; // priority inheritance for mutexes
 bool preemption = false;          // preemption (true) or cooperative (false)
 
@@ -131,8 +131,8 @@ uint8_t rtosScheduler(void)
     uint8_t priorityMatrix[16][MAX_TASKS] = {0};
     static uint8_t priorityIndex[12] = {0};
 
-    task = 0;
     if(priorityScheduler) {
+        task = 0;
         while(task < taskCount || task == 0xFF) {
             i = 0;
             while(i <= 12) {

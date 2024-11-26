@@ -17,6 +17,7 @@ extern uint32_t readMSP(void);
 extern uint32_t readPSP(void);
 extern void callSV(uint8_t);
 extern uint8_t readR0(void);
+extern uint8_t readR3(void);
 extern void saveContext(void);
 extern void loadContext(void);
 extern void setPC(uint32_t);
